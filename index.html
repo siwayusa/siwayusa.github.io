@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forest Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Anuphan', sans-serif;
+            background-color: #000000;
+            color: #e2e8f0;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .view-section {
+            position: fixed;
+            inset: 0;
+            transition: opacity 0.5s ease;
+            z-index: 20;
+        }
+
+        .view-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        #adminGalleryView { background-color: #000000; }
+
+        .glass-panel {
+            background: rgba(10, 10, 10, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+        }
+
+        .upload-zone {
+            border: 2px dashed #2d3748;
+            transition: all 0.3s ease;
+        }
+
+        .upload-zone:hover {
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.05);
+        }
+
+        .pin-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s;
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .pin-btn:active { transform: scale(0.9); background: #38bdf8; color: #000; }
+
+        .pin-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            border: 1px solid #2d3748;
+            transition: background-color 0.2s;
+        }
+        .pin-dot.active { background-color: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        .shake { animation: shake 0.3s ease-in-out 0s 2; }
+
+        .floating-photo {
+            position: absolute;
+            z-index: 30;
+            transition: opacity 2s ease-out;
+            pointer-events: none;
+            will-change: transform;
+        }
+
+        .photo-inner {
+            position: relative;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 0 25px rgba(56, 189, 248, 0.5));
+        }
+
+        .photo-inner img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            mask-image: radial-gradient(circle, black 0%, rgba(0,0,0,0.4) 40%, transparent 80%);
+            -webkit-mask-image: radial-gradient(circle, black 0%, rgba(0,0,0,0.4) 40%, transparent 80%);
+        }
+
+        .fade-out { opacity: 0 !important; }
+
+        #cameraContainer {
+            position: relative;
+            width: 200px; height: 200px;
+            margin: 0 auto 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 0 45px rgba(56, 189, 248, 0.6));
+            background: rgba(0,0,0,0.5);
+        }
+
+        #video {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            mask-image: radial-gradient(circle, black 0%, rgba(0,0,0,0.4) 40%, transparent 80%);
+            -webkit-mask-image: radial-gradient(circle, black 0%, rgba(0,0,0,0.4) 40%, transparent 80%);
+            transform: scaleX(-1);
+        }
+
+        /* ปรับขนาดผีเสื้อลง 50% (จาก 50px เป็น 25px) */
+        .butterfly {
+            position: absolute;
+            width: 25px; height: 25px;
+            z-index: 15;
+            pointer-events: none;
+            will-change: transform;
+            perspective: 1000px;
+        }
+
+        .butterfly-body { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+        .wing { position: absolute; width: 50%; height: 100%; top: 0; transform-origin: right center; will-change: transform; }
+        .wing-right { left: 50%; transform-origin: left center; }
+
+        #errorLog {
+            position: fixed;
+            bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(220, 38, 38, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 12px;
+            z-index: 9999;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="errorLog"></div>
+
+    <!-- 1. หน้าแรก -->
+    <div id="userView" class="view-section flex items-center justify-center p-6">
+        <div class="glass-panel w-full max-w-xl p-8 md:p-12 rounded-[2.5rem] text-center">
+            <header class="mb-10 relative">
+                <h1 class="text-4xl font-bold text-white mb-3 drop-shadow-lg">Forest Gallery</h1>
+                <p class="text-gray-400">บันทึกความทรงจำของคุณลงในพงไพร</p>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="upload-zone rounded-[2rem] p-8 cursor-pointer group flex flex-col items-center justify-center" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
+                    <div class="bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                    </div>
+                    <p class="text-lg font-medium text-gray-200">เลือกไฟล์</p>
+                </div>
+
+                <div class="upload-zone rounded-[2rem] p-8 cursor-pointer group flex flex-col items-center justify-center" onclick="window.openCamera()">
+                    <div class="bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <p class="text-lg font-medium text-gray-200">ถ่ายภาพ</p>
+                </div>
+            </div>
+
+            <div id="statusMsg" class="mt-4 text-sky-400 font-medium hidden">✓ ส่งเข้าพงไพรสำเร็จ!</div>
+            <p class="text-gray-600 text-[10px] mt-2 uppercase tracking-widest">รูปภาพจะปรากฏในพงไพรเป็นเวลา 10 นาที</p>
+
+            <button onclick="window.goToAdminGallery()" class="mt-8 text-xs text-gray-500 hover:text-white tracking-widest uppercase transition-colors">
+                show
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. หน้าต่างกล้อง -->
+    <div id="cameraView" class="view-section view-hidden flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
+        <div class="w-full max-w-lg text-center">
+            <h3 class="text-sky-400 mb-8 font-light tracking-[0.2em] uppercase">เตรียมส่งดวงไฟของคุณ</h3>
+            <div id="cameraContainer">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+            <div class="flex justify-center items-center gap-12">
+                <button onclick="window.closeCamera()" class="text-gray-500 hover:text-white transition-colors uppercase text-xs tracking-widest">ยกเลิก</button>
+                <button onclick="window.capturePhoto()" class="w-20 h-20 rounded-full border-2 border-sky-400/50 flex items-center justify-center bg-sky-400/10 hover:bg-sky-400/20 transition-all active:scale-90 group">
+                    <div class="w-14 h-14 rounded-full bg-sky-400 group-hover:scale-95 transition-transform"></div>
+                </button>
+                <div class="w-12"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. หน้า PIN Pad -->
+    <div id="adminPinView" class="view-section view-hidden flex items-center justify-center p-6 bg-black/70 backdrop-blur-md z-[100]">
+        <div id="pinContainer" class="glass-panel w-full max-w-xs p-8 rounded-[2rem] text-center">
+            <h2 class="text-xl font-bold text-red-400 mb-2">ยืนยันการล้างข้อมูล</h2>
+            <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">กรุณาใส่รหัสผ่าน 4 หลัก</p>
+            <div class="flex justify-center gap-4 mb-8">
+                <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <button class="pin-btn" onclick="window.pressPin('1')">1</button>
+                <button class="pin-btn" onclick="window.pressPin('2')">2</button>
+                <button class="pin-btn" onclick="window.pressPin('3')">3</button>
+                <button class="pin-btn" onclick="window.pressPin('4')">4</button>
+                <button class="pin-btn" onclick="window.pressPin('5')">5</button>
+                <button class="pin-btn" onclick="window.pressPin('6')">6</button>
+                <button class="pin-btn" onclick="window.pressPin('7')">7</button>
+                <button class="pin-btn" onclick="window.pressPin('8')">8</button>
+                <button class="pin-btn" onclick="window.pressPin('9')">9</button>
+                <button class="pin-btn col-start-2" onclick="window.pressPin('0')">0</button>
+            </div>
+            <div class="flex flex-col gap-2">
+                <button onclick="window.clearPin()" class="text-sm text-sky-500 hover:text-sky-400 py-2">ล้างตัวเลข</button>
+                <button onclick="window.cancelPin()" class="text-xs text-gray-500 hover:text-gray-400 py-2 uppercase tracking-widest">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. หน้าแสดงผล (show) -->
+    <div id="adminGalleryView" class="view-section view-hidden">
+        <div id="butterflySpace" class="absolute inset-0 z-10 pointer-events-none"></div>
+        <div id="forestSpace" class="absolute inset-0 z-20"></div>
+        
+        <div class="absolute top-6 left-6 z-50 flex gap-4">
+            <button onclick="window.logoutAdmin()" class="bg-red-900/40 hover:bg-red-800 p-3 rounded-full text-white backdrop-blur shadow-xl transition-all active:scale-95" title="ออกจากระบบ">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="absolute bottom-6 right-6 z-50 group p-4">
+            <button onclick="window.showPinForClear()" class="opacity-0 group-hover:opacity-100 bg-red-900/40 hover:bg-red-800 px-6 py-3 rounded-full text-white backdrop-blur shadow-2xl transition-all duration-500 active:scale-95 text-xs uppercase tracking-widest font-bold border border-white/10">
+                ล้างภาพทั้งหมด
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxeIqybtlZyqV5ikQRKEZMu_pJ2rhoKIE",
+            authDomain: "forest-cb2f4.firebaseapp.com",
+            projectId: "forest-cb2f4",
+            storageBucket: "forest-cb2f4.firebasestorage.app",
+            messagingSenderId: "61554499050",
+            appId: "1:61554499050:web:e3f75a4b866061ecf72693",
+            measurementId: "G-SW4MHDEWW1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let userState = null;
+        let isGalleryActive = false;
+        let currentPin = "";
+        const CORRECT_PIN = "1234";
+        const processedDocIds = new Set();
+        let unsubscribeSnapshot = null;
+        let stream = null;
+        let activeImagesList = [];
+
+        function showError(msg) {
+            const log = document.getElementById('errorLog');
+            log.innerText = "Firebase Error: " + msg;
+            log.style.display = 'block';
+            setTimeout(() => { log.style.display = 'none'; }, 8000);
+        }
+
+        const initAuth = async () => {
+            try {
+                const cred = await signInAnonymously(auth);
+                userState = cred.user;
+            } catch (err) { showError("Authentication Error"); }
+        };
+        initAuth();
+        onAuthStateChanged(auth, (user) => { userState = user; });
+
+        function globalAnimationLoop() {
+            if (!isGalleryActive) { requestAnimationFrame(globalAnimationLoop); return; }
+            const now = Date.now();
+            const lifespan = 600000; // 10 mins
+            const fadeOutStart = lifespan - 5000;
+
+            activeImagesList.forEach(img => {
+                img.x += img.vx; img.y += img.vy;
+                if (img.x <= 0) { img.x = 0; img.vx = Math.abs(img.vx); }
+                else if (img.x >= window.innerWidth - img.width) { img.x = window.innerWidth - img.width; img.vx = -Math.abs(img.vx); }
+                if (img.y <= 0) { img.y = 0; img.vy = Math.abs(img.vy); }
+                else if (img.y >= window.innerHeight - img.height) { img.y = window.innerHeight - img.height; img.vy = -Math.abs(img.vy); }
+                
+                const elapsed = now - img.startTime;
+                if (elapsed >= fadeOutStart) img.el.classList.add('fade-out');
+                
+                if (elapsed >= lifespan && !img.markedForDeletion) {
+                    img.markedForDeletion = true;
+                    img.el.remove();
+                    deleteDoc(doc(db, 'forest_images', img.id)).catch(e => console.error("Auto delete failed", e));
+                }
+            });
+
+            for (let i = 0; i < activeImagesList.length; i++) {
+                for (let j = i + 1; j < activeImagesList.length; j++) {
+                    const a = activeImagesList[i], b = activeImagesList[j];
+                    if (a.markedForDeletion || b.markedForDeletion) continue;
+                    const dx = (b.x + b.r) - (a.x + a.r), dy = (b.y + b.r) - (a.y + a.r);
+                    const dist = Math.sqrt(dx * dx + dy * dy), minD = a.r + b.r;
+                    if (dist < minD) {
+                        const tVx = a.vx, tVy = a.vy; a.vx = b.vx; a.vy = b.vy; b.vx = tVx; b.vy = tVy;
+                        const over = minD - dist, nx = dx / dist, ny = dy / dist;
+                        a.x -= nx * (over / 2); a.y -= ny * (over / 2); b.x += nx * (over / 2); b.y += ny * (over / 2);
+                    }
+                }
+            }
+
+            activeImagesList = activeImagesList.filter(img => !img.markedForDeletion);
+            activeImagesList.forEach(img => {
+                img.el.style.transform = `translate3d(${img.x}px, ${img.y}px, 0)`;
+            });
+
+            requestAnimationFrame(globalAnimationLoop);
+        }
+        requestAnimationFrame(globalAnimationLoop);
+
+        window.pressPin = (num) => {
+            if (currentPin.length < 4) {
+                currentPin += num; updatePinDots();
+                if (currentPin.length === 4) setTimeout(validatePin, 250);
+            }
+        };
+        window.clearPin = () => { currentPin = ""; updatePinDots(); };
+        window.cancelPin = () => { window.clearPin(); document.getElementById('adminPinView').classList.add('view-hidden'); };
+        function updatePinDots() {
+            document.querySelectorAll('.pin-dot').forEach((dot, i) => dot.classList.toggle('active', i < currentPin.length));
+        }
+        async function validatePin() {
+            if (currentPin === CORRECT_PIN) { window.cancelPin(); await executeClearAll(); }
+            else {
+                document.getElementById('pinContainer').classList.add('shake');
+                setTimeout(() => { document.getElementById('pinContainer').classList.remove('shake'); window.clearPin(); }, 500);
+            }
+        }
+
+        window.goToAdminGallery = () => {
+            document.getElementById('userView').classList.add('view-hidden');
+            document.getElementById('adminGalleryView').classList.remove('view-hidden');
+            isGalleryActive = true; listenForImages(); initButterflies();
+        };
+        window.showPinForClear = () => { document.getElementById('adminPinView').classList.remove('view-hidden'); window.clearPin(); };
+        window.logoutAdmin = () => {
+            isGalleryActive = false;
+            if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+            document.getElementById('adminGalleryView').classList.add('view-hidden');
+            document.getElementById('userView').classList.remove('view-hidden');
+            document.getElementById('forestSpace').innerHTML = ''; document.getElementById('butterflySpace').innerHTML = '';
+            activeImagesList = []; processedDocIds.clear();
+        };
+
+        async function executeClearAll() {
+            if (!userState) return;
+            try {
+                const colRef = collection(db, 'forest_images');
+                const snapshot = await getDocs(colRef);
+                const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'forest_images', d.id)));
+                await Promise.all(deletePromises);
+                document.getElementById('forestSpace').innerHTML = ''; activeImagesList = []; processedDocIds.clear();
+            } catch (err) { showError("Clear Error"); }
+        }
+
+        window.openCamera = async () => {
+            document.getElementById('cameraView').classList.remove('view-hidden');
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } }, audio: false 
+                });
+                document.getElementById('video').srcObject = stream;
+            } catch (err) { showError("Camera Error"); window.closeCamera(); }
+        };
+        window.closeCamera = () => {
+            if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
+            document.getElementById('cameraView').classList.add('view-hidden');
+        };
+        window.capturePhoto = () => {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const size = Math.min(video.videoWidth, video.videoHeight);
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, (video.videoWidth - size)/2, (video.videoHeight - size)/2, size, size, 0, 0, size, size);
+            uploadToForest(canvas.toDataURL('image/jpeg', 0.8), `cap_${Date.now()}.jpg`);
+            window.closeCamera();
+        };
+
+        const fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener('change', (e) => {
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => uploadToForest(e.target.result, file.name);
+                reader.readAsDataURL(file);
+            });
+        });
+
+        async function uploadToForest(src, name) {
+            if (!userState) return;
+            try {
+                await addDoc(collection(db, 'forest_images'), {
+                    src, name, timestamp: Date.now(), userId: userState.uid
+                });
+                document.getElementById('statusMsg').classList.remove('hidden');
+                setTimeout(() => document.getElementById('statusMsg').classList.add('hidden'), 5000);
+            } catch (err) { showError("Upload Error"); }
+        }
+
+        function listenForImages() {
+            if (!userState || !isGalleryActive) return;
+            const q = query(collection(db, 'forest_images'));
+            unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added" && isGalleryActive) {
+                        if (!processedDocIds.has(change.doc.id)) {
+                            processedDocIds.add(change.doc.id);
+                            spawnFloatingImage(change.doc.data().src, change.doc.id, change.doc.data().timestamp);
+                        }
+                    } else if (change.type === "removed") {
+                        const idx = activeImagesList.findIndex(img => img.id === change.doc.id);
+                        if (idx !== -1) { activeImagesList[idx].el.remove(); activeImagesList.splice(idx, 1); }
+                    }
+                });
+            });
+        }
+
+        function spawnFloatingImage(src, docId, timestamp) {
+            const space = document.getElementById('forestSpace');
+            if (!space) return;
+
+            const now = Date.now();
+            const lifespan = 600000;
+            const startTime = timestamp || now;
+
+            if (now - startTime >= lifespan) {
+                deleteDoc(doc(db, 'forest_images', docId));
+                return;
+            }
+
+            const el = document.createElement('div');
+            el.className = 'floating-photo';
+            const isMobile = window.innerWidth < 768;
+            const size = isMobile ? 90 : 128, radius = size / 2;
+            let posX = Math.random() * (window.innerWidth - size), posY = Math.random() * (window.innerHeight - size);
+            
+            // ความเร็วเนิบช้า (30%)
+            const speedMultiplier = isMobile ? 0.39 : 0.51;
+            let velX = (Math.random() - 0.5) * speedMultiplier, velY = (Math.random() - 0.5) * speedMultiplier;
+            
+            el.innerHTML = `<div class="photo-inner" style="width:${size}px; height:${size}px;"><img src="${src}" class="w-full h-full object-cover"></div>`;
+            space.appendChild(el);
+            activeImagesList.push({
+                id: docId, el: el, x: posX, y: posY, vx: velX, vy: velY,
+                width: size, height: size, r: radius, startTime: startTime, markedForDeletion: false
+            });
+        }
+
+        function initButterflies() {
+            const space = document.getElementById('butterflySpace');
+            const count = 45; for (let i = 0; i < count; i++) { spawnButterfly(space); }
+        }
+
+        function spawnButterfly(space) {
+            const bf = document.createElement('div');
+            bf.className = 'butterfly';
+            const scale = 0.4 + Math.random() * 0.7;
+            const theme = [{ main: '#7dd3fc', soft: '#bae6fd' }, { main: '#93c5fd', soft: '#bfdbfe' }][Math.floor(Math.random()*2)];
+            const uniqueId = Math.random().toString(36).substring(7);
+            bf.innerHTML = `<div class="butterfly-body" style="transform: scale(${scale})">
+                <svg viewBox="0 0 50 100" class="wing wing-left"><defs><radialGradient id="gl-${uniqueId}" cx="100%" cy="50%" r="100%"><stop offset="0%" style="stop-opacity:0.8" /><stop offset="100%" style="stop-opacity:0.2" /></radialGradient></defs><path d="M50 50 Q20 -5 5 15 T15 50 Q0 85 20 95 T50 50" fill="${theme.main}" filter="blur(1px)" /></svg>
+                <svg viewBox="0 0 50 100" class="wing wing-right"><defs><radialGradient id="gr-${uniqueId}" cx="0%" cy="50%" r="100%"><stop offset="0%" style="stop-opacity:0.8" /><stop offset="100%" style="stop-opacity:0.2" /></radialGradient></defs><path d="M0 50 Q30 -5 45 15 T35 50 Q50 85 30 95 T0 50" fill="${theme.main}" filter="blur(1px)" /></svg>
+            </div>`;
+            space.appendChild(bf);
+            let x = Math.random() * window.innerWidth, y = Math.random() * window.innerHeight, angle = Math.random() * Math.PI * 2;
+            
+            // ความเร็วผีเสื้อเนิบช้า
+            let velocity = (0.3 + Math.random() * 0.4) * 0.7; 
+            let turnSpeed = ((Math.random() - 0.5) * 0.04) * 0.7;
+            
+            const wL = bf.querySelector('.wing-left'), wR = bf.querySelector('.wing-right');
+            function move() {
+                if (!isGalleryActive) { bf.remove(); return; }
+                angle += turnSpeed + ((Math.random() - 0.5) * 0.04 * 0.7);
+                x += Math.cos(angle) * velocity; y += Math.sin(angle) * velocity;
+                if (x < -100) x = window.innerWidth + 50; if (x > window.innerWidth + 100) x = -50;
+                if (y < -100) y = window.innerHeight + 50; if (y > window.innerHeight + 100) y = -50;
+                
+                const fA = Math.sin(Date.now() * 0.0035) * 65; 
+                wL.style.transform = `rotateY(${fA}deg)`; wR.style.transform = `rotateY(${-fA}deg)`;
+                bf.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle * 180 / Math.PI + 90}deg)`;
+                requestAnimationFrame(move);
+            }
+            requestAnimationFrame(move);
+        }
+    </script>
+</body>
+</html>
