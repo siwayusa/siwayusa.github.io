@@ -114,6 +114,7 @@
             justify-content: center;
             filter: drop-shadow(0 0 45px rgba(56, 189, 248, 0.6));
             background: rgba(0,0,0,0.5);
+            overflow: visible;
         }
 
         #video {
@@ -125,7 +126,6 @@
             transform: scaleX(-1);
         }
 
-        /* ปรับขนาดผีเสื้อลง 50% (จาก 50px เป็น 25px) */
         .butterfly {
             position: absolute;
             width: 25px; height: 25px;
@@ -151,62 +151,111 @@
             z-index: 9999;
             display: none;
         }
+
+        #countdownText {
+            position: absolute;
+            font-size: 5rem;
+            font-weight: 800;
+            color: white;
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #countdownText.active {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+        #cameraFlash {
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .flash-active {
+            animation: flashAnim 0.4s ease-out forwards;
+        }
+        @keyframes flashAnim {
+            0% { opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+
+        .camera-success-text {
+            color: #10b981 !important;
+            text-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .subtle-file-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 25px;
+            opacity: 0.2;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .subtle-file-btn:hover {
+            opacity: 0.8;
+            transform: scale(1.1);
+        }
     </style>
 </head>
 <body>
 
     <div id="errorLog"></div>
+    <div id="cameraFlash"></div>
 
-    <!-- 1. หน้าแรก -->
+    <!-- 1. Home Screen -->
     <div id="userView" class="view-section flex items-center justify-center p-6">
-        <div class="glass-panel w-full max-w-xl p-8 md:p-12 rounded-[2.5rem] text-center">
+        <div class="glass-panel w-full max-w-sm p-10 rounded-[2.5rem] text-center relative overflow-hidden">
             <header class="mb-10 relative">
                 <h1 class="text-4xl font-bold text-white mb-3 drop-shadow-lg">Forest Gallery</h1>
-                <p class="text-gray-400">บันทึกความทรงจำของคุณลงในพงไพร</p>
+                <p class="text-gray-400 text-sm">บันทึกความทรงจำของคุณลงในพงไพร</p>
             </header>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div class="upload-zone rounded-[2rem] p-8 cursor-pointer group flex flex-col items-center justify-center" onclick="document.getElementById('fileInput').click()">
-                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
-                    <div class="bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                        </svg>
-                    </div>
-                    <p class="text-lg font-medium text-gray-200">เลือกไฟล์</p>
-                </div>
-
-                <div class="upload-zone rounded-[2rem] p-8 cursor-pointer group flex flex-col items-center justify-center" onclick="window.openCamera()">
-                    <div class="bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="flex justify-center mb-6">
+                <div class="upload-zone rounded-[2.5rem] p-10 cursor-pointer group flex flex-col items-center justify-center w-full max-w-[240px] aspect-square" onclick="window.openCamera()">
+                    <div class="bg-gray-800 w-20 h-20 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-sky-500/20 transition-all duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </div>
-                    <p class="text-lg font-medium text-gray-200">ถ่ายภาพ</p>
+                    <p class="text-xl font-semibold text-gray-200 tracking-wide">ถ่ายภาพ</p>
                 </div>
             </div>
 
-            <div id="statusMsg" class="mt-4 text-sky-400 font-medium hidden">✓ ส่งเข้าพงไพรสำเร็จ!</div>
-            <p class="text-gray-600 text-[10px] mt-2 uppercase tracking-widest">รูปภาพจะปรากฏในพงไพรเป็นเวลา 10 นาที</p>
+            <div class="subtle-file-btn" onclick="document.getElementById('fileInput').click()" title="เลือกไฟล์จากเครื่อง">
+                <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+            </div>
 
-            <button onclick="window.goToAdminGallery()" class="mt-8 text-xs text-gray-500 hover:text-white tracking-widest uppercase transition-colors">
+            <div id="statusMsg" class="mt-4 text-sky-400 font-medium hidden">✓ ส่งเข้าพงไพรสำเร็จ!</div>
+            <p class="text-gray-600 text-[10px] mt-2 uppercase tracking-widest">รูปภาพจะปรากฏในพงไพร 10 นาที</p>
+
+            <button onclick="window.goToAdminGallery()" class="mt-8 text-[10px] text-gray-700 hover:text-gray-400 tracking-widest uppercase transition-colors">
                 show
             </button>
         </div>
     </div>
 
-    <!-- 2. หน้าต่างกล้อง -->
+    <!-- 2. Camera View -->
     <div id="cameraView" class="view-section view-hidden flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
         <div class="w-full max-w-lg text-center">
-            <h3 class="text-sky-400 mb-8 font-light tracking-[0.2em] uppercase">เตรียมส่งดวงไฟของคุณ</h3>
+            <h3 id="cameraHeader" class="text-sky-400 mb-8 font-light tracking-[0.2em] uppercase transition-all duration-300">เตรียมส่งดวงไฟของคุณ</h3>
             <div id="cameraContainer">
+                <div id="countdownText">3</div>
                 <video id="video" autoplay playsinline></video>
                 <canvas id="canvas" class="hidden"></canvas>
             </div>
             <div class="flex justify-center items-center gap-12">
-                <button onclick="window.closeCamera()" class="text-gray-500 hover:text-white transition-colors uppercase text-xs tracking-widest">ยกเลิก</button>
-                <button onclick="window.capturePhoto()" class="w-20 h-20 rounded-full border-2 border-sky-400/50 flex items-center justify-center bg-sky-400/10 hover:bg-sky-400/20 transition-all active:scale-90 group">
+                <button id="cancelCamBtn" onclick="window.closeCamera()" class="text-gray-500 hover:text-white transition-colors uppercase text-xs tracking-widest">ยกเลิก</button>
+                <button id="shutterBtn" onclick="window.startCountdown()" class="w-20 h-20 rounded-full border-2 border-sky-400/50 flex items-center justify-center bg-sky-400/10 hover:bg-sky-400/20 transition-all active:scale-90 group">
                     <div class="w-14 h-14 rounded-full bg-sky-400 group-hover:scale-95 transition-transform"></div>
                 </button>
                 <div class="w-12"></div>
@@ -214,7 +263,7 @@
         </div>
     </div>
 
-    <!-- 3. หน้า PIN Pad -->
+    <!-- 3. PIN Pad -->
     <div id="adminPinView" class="view-section view-hidden flex items-center justify-center p-6 bg-black/70 backdrop-blur-md z-[100]">
         <div id="pinContainer" class="glass-panel w-full max-w-xs p-8 rounded-[2rem] text-center">
             <h2 class="text-xl font-bold text-red-400 mb-2">ยืนยันการล้างข้อมูล</h2>
@@ -241,7 +290,7 @@
         </div>
     </div>
 
-    <!-- 4. หน้าแสดงผล (show) -->
+    <!-- 4. Gallery View -->
     <div id="adminGalleryView" class="view-section view-hidden">
         <div id="butterflySpace" class="absolute inset-0 z-10 pointer-events-none"></div>
         <div id="forestSpace" class="absolute inset-0 z-20"></div>
@@ -289,6 +338,7 @@
         let unsubscribeSnapshot = null;
         let stream = null;
         let activeImagesList = [];
+        let isCountingDown = false;
 
         function showError(msg) {
             const log = document.getElementById('errorLog');
@@ -314,8 +364,11 @@
 
             activeImagesList.forEach(img => {
                 img.x += img.vx; img.y += img.vy;
+                
+                // Wall Bounce Logic
                 if (img.x <= 0) { img.x = 0; img.vx = Math.abs(img.vx); }
                 else if (img.x >= window.innerWidth - img.width) { img.x = window.innerWidth - img.width; img.vx = -Math.abs(img.vx); }
+                
                 if (img.y <= 0) { img.y = 0; img.vy = Math.abs(img.vy); }
                 else if (img.y >= window.innerHeight - img.height) { img.y = window.innerHeight - img.height; img.vy = -Math.abs(img.vy); }
                 
@@ -329,16 +382,32 @@
                 }
             });
 
+            // --- ตรรกะป้องกันการซ้อนทับ (Collision Detection) ---
             for (let i = 0; i < activeImagesList.length; i++) {
                 for (let j = i + 1; j < activeImagesList.length; j++) {
                     const a = activeImagesList[i], b = activeImagesList[j];
                     if (a.markedForDeletion || b.markedForDeletion) continue;
-                    const dx = (b.x + b.r) - (a.x + a.r), dy = (b.y + b.r) - (a.y + a.r);
-                    const dist = Math.sqrt(dx * dx + dy * dy), minD = a.r + b.r;
+                    
+                    // คำนวณระยะห่างระหว่างจุดศูนย์กลางของวงกลมทั้งสอง
+                    const dx = (b.x + b.r) - (a.x + a.r);
+                    const dy = (b.y + b.r) - (a.y + a.r);
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const minD = a.r + b.r;
+                    
                     if (dist < minD) {
-                        const tVx = a.vx, tVy = a.vy; a.vx = b.vx; a.vy = b.vy; b.vx = tVx; b.vy = tVy;
-                        const over = minD - dist, nx = dx / dist, ny = dy / dist;
-                        a.x -= nx * (over / 2); a.y -= ny * (over / 2); b.x += nx * (over / 2); b.y += ny * (over / 2);
+                        // เมื่อมีการสัมผัสกัน ให้ทำการเด้ง (สลับความเร็ว)
+                        const tVx = a.vx, tVy = a.vy;
+                        a.vx = b.vx; a.vy = b.vy;
+                        b.vx = tVx; b.vy = tVy;
+                        
+                        // ปรับตำแหน่งไม่ให้จมลงไปในกันและกันเพื่อป้องกันการติดกัน
+                        const overlap = minD - dist;
+                        const nx = dx / (dist || 1); // ทิศทาง X
+                        const ny = dy / (dist || 1); // ทิศทาง Y
+                        a.x -= nx * (overlap / 2);
+                        a.y -= ny * (overlap / 2);
+                        b.x += nx * (overlap / 2);
+                        b.y += ny * (overlap / 2);
                     }
                 }
             }
@@ -399,6 +468,16 @@
 
         window.openCamera = async () => {
             document.getElementById('cameraView').classList.remove('view-hidden');
+            const header = document.getElementById('cameraHeader');
+            header.innerText = "เตรียมส่งดวงไฟของคุณ";
+            header.classList.remove('camera-success-text');
+            
+            document.getElementById('shutterBtn').disabled = false;
+            document.getElementById('shutterBtn').style.opacity = "1";
+            document.getElementById('shutterBtn').style.display = "flex";
+            document.getElementById('cancelCamBtn').style.opacity = "1";
+            document.getElementById('cancelCamBtn').style.pointerEvents = "auto";
+            
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } }, audio: false 
@@ -406,19 +485,74 @@
                 document.getElementById('video').srcObject = stream;
             } catch (err) { showError("Camera Error"); window.closeCamera(); }
         };
+
         window.closeCamera = () => {
+            if (isCountingDown) return; 
             if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
             document.getElementById('cameraView').classList.add('view-hidden');
         };
+
+        window.startCountdown = () => {
+            if (isCountingDown) return;
+            isCountingDown = true;
+            
+            const btn = document.getElementById('shutterBtn');
+            const cancelBtn = document.getElementById('cancelCamBtn');
+            const cdText = document.getElementById('countdownText');
+            
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            cancelBtn.style.opacity = "0";
+            cancelBtn.style.pointerEvents = "none";
+
+            let count = 3;
+            cdText.innerText = count;
+            cdText.classList.add('active');
+
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    cdText.classList.remove('active');
+                    setTimeout(() => {
+                        cdText.innerText = count;
+                        cdText.classList.add('active');
+                    }, 50);
+                } else {
+                    clearInterval(timer);
+                    cdText.classList.remove('active');
+                    
+                    const flash = document.getElementById('cameraFlash');
+                    flash.classList.add('flash-active');
+                    setTimeout(() => flash.classList.remove('flash-active'), 400);
+
+                    window.capturePhoto();
+                }
+            }, 1000);
+        };
+
         window.capturePhoto = () => {
             const video = document.getElementById('video');
             const canvas = document.getElementById('canvas');
             const size = Math.min(video.videoWidth, video.videoHeight);
             canvas.width = size; canvas.height = size;
             const ctx = canvas.getContext('2d');
+            
+            ctx.translate(size, 0);
+            ctx.scale(-1, 1);
             ctx.drawImage(video, (video.videoWidth - size)/2, (video.videoHeight - size)/2, size, size, 0, 0, size, size);
+            
             uploadToForest(canvas.toDataURL('image/jpeg', 0.8), `cap_${Date.now()}.jpg`);
-            window.closeCamera();
+            
+            const header = document.getElementById('cameraHeader');
+            header.innerText = "ส่งดวงไฟสำเร็จ!";
+            header.classList.add('camera-success-text');
+            
+            document.getElementById('shutterBtn').style.display = "none";
+            
+            setTimeout(() => {
+                isCountingDown = false; 
+                window.closeCamera();   
+            }, 1500);
         };
 
         const fileInput = document.getElementById('fileInput');
@@ -478,16 +612,29 @@
             const size = isMobile ? 90 : 128, radius = size / 2;
             let posX = Math.random() * (window.innerWidth - size), posY = Math.random() * (window.innerHeight - size);
             
-            // ความเร็วเนิบช้า (30%)
-            const speedMultiplier = isMobile ? 0.39 : 0.51;
+            const speedMultiplier = isMobile ? 0.12 : 0.18; 
             let velX = (Math.random() - 0.5) * speedMultiplier, velY = (Math.random() - 0.5) * speedMultiplier;
             
             el.innerHTML = `<div class="photo-inner" style="width:${size}px; height:${size}px;"><img src="${src}" class="w-full h-full object-cover"></div>`;
             space.appendChild(el);
+            
             activeImagesList.push({
                 id: docId, el: el, x: posX, y: posY, vx: velX, vy: velY,
                 width: size, height: size, r: radius, startTime: startTime, markedForDeletion: false
             });
+
+            if (activeImagesList.length > 20) {
+                activeImagesList.sort((a, b) => a.startTime - b.startTime);
+                const oldest = activeImagesList.shift();
+                if (oldest) {
+                    oldest.markedForDeletion = true;
+                    oldest.el.classList.add('fade-out');
+                    setTimeout(() => {
+                        if (oldest.el.parentNode) oldest.el.remove();
+                        deleteDoc(doc(db, 'forest_images', oldest.id)).catch(e => console.error("Limit removal failed", e));
+                    }, 500);
+                }
+            }
         }
 
         function initButterflies() {
@@ -508,19 +655,18 @@
             space.appendChild(bf);
             let x = Math.random() * window.innerWidth, y = Math.random() * window.innerHeight, angle = Math.random() * Math.PI * 2;
             
-            // ความเร็วผีเสื้อเนิบช้า
-            let velocity = (0.3 + Math.random() * 0.4) * 0.7; 
-            let turnSpeed = ((Math.random() - 0.5) * 0.04) * 0.7;
+            let velocity = (0.15 + Math.random() * 0.25) * 0.7; 
+            let turnSpeed = ((Math.random() - 0.5) * 0.02) * 0.7;
             
             const wL = bf.querySelector('.wing-left'), wR = bf.querySelector('.wing-right');
             function move() {
                 if (!isGalleryActive) { bf.remove(); return; }
-                angle += turnSpeed + ((Math.random() - 0.5) * 0.04 * 0.7);
+                angle += turnSpeed + ((Math.random() - 0.5) * 0.02 * 0.7);
                 x += Math.cos(angle) * velocity; y += Math.sin(angle) * velocity;
                 if (x < -100) x = window.innerWidth + 50; if (x > window.innerWidth + 100) x = -50;
                 if (y < -100) y = window.innerHeight + 50; if (y > window.innerHeight + 100) y = -50;
                 
-                const fA = Math.sin(Date.now() * 0.0035) * 65; 
+                const fA = Math.sin(Date.now() * 0.002) * 65; 
                 wL.style.transform = `rotateY(${fA}deg)`; wR.style.transform = `rotateY(${-fA}deg)`;
                 bf.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle * 180 / Math.PI + 90}deg)`;
                 requestAnimationFrame(move);
